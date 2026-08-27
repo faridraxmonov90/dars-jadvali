@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-import { storageGet, storageSet } from "./firebase";
+import { storageGet, storageSet } from "./storageApi";
 import { Settings, GraduationCap, BookOpen, Pencil, Ruler, Calculator, School, Bell, CalendarDays, CalendarOff, ClipboardList, AlertTriangle, Upload, CheckCircle2, ChevronLeft, FileDown } from "lucide-react";
 
 /* ---------- palette ---------- */
