@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-import { storageGet, storageSet } from "./storageApi";
 import { Settings, GraduationCap, BookOpen, Pencil, Ruler, Calculator, School, Bell, CalendarDays, CalendarOff, ClipboardList, AlertTriangle, Upload, CheckCircle2, ChevronLeft, FileDown } from "lucide-react";
 
 /* ---------- palette ---------- */
@@ -358,6 +357,7 @@ function TeachersEditor({ teachers, subjects, onSave, onDelete, onImportMany }) 
     <div>
       <div className="flex flex-wrap justify-end gap-2 mb-4">
         <Btn kind="ghost" onClick={downloadTeacherTemplate}>⬇ Namuna faylni yuklab olish</Btn>
+        <Btn kind="ghost" onClick={() => downloadTeachersPDF(teachers, subjects)}><span className="inline-flex items-center gap-1.5"><FileDown size={14} /> PDF yuklab olish</span></Btn>
         <label style={{ background: C.teal, color: "#fff" }} className="rounded-md font-medium px-4 py-2 text-sm hover:opacity-90 transition cursor-pointer">
           📥 Excel orqali import qilish
           <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFile} />
@@ -1138,6 +1138,41 @@ function loadJsPDF() {
     document.body.appendChild(script);
   });
 }
+
+function downloadTeachersPDF(teachers, subjects) {
+  loadJsPDF()
+    .then((JsPDF) => {
+      const doc = new JsPDF();
+      doc.setFontSize(14);
+      doc.text("O'qituvchilar ro'yxati", 14, 18);
+      doc.setFontSize(9);
+      doc.text(`Jami: ${teachers.length} ta o'qituvchi`, 14, 25);
+      let y = 38;
+      doc.setFontSize(10);
+      doc.setFont(undefined, "bold");
+      doc.text("Ism Familiya", 14, y);
+      doc.text("Login", 78, y);
+      doc.text("Parol", 118, y);
+      doc.text("Fanlar", 150, y);
+      doc.setFont(undefined, "normal");
+      y += 4;
+      doc.setLineWidth(0.3);
+      doc.line(14, y, 196, y);
+      y += 8;
+      teachers.forEach((t) => {
+        if (y > 280) { doc.addPage(); y = 20; }
+        const subjNames = (t.subjectIds || []).map((id) => subjects.find((s) => s.id === id)?.name).filter(Boolean).join(", ") || "-";
+        doc.text(`${t.firstName} ${t.lastName}`, 14, y);
+        doc.text(String(t.username || "-"), 78, y);
+        doc.text(String(t.password || "-"), 118, y);
+        doc.text(subjNames, 150, y, { maxWidth: 44 });
+        y += 9;
+      });
+      doc.save("oqituvchilar-royxati.pdf");
+    })
+    .catch(() => window.alert("PDF kutubxonasini yuklab bo'lmadi. Internet aloqasini tekshiring."));
+}
+
 
 function downloadMissingTopicsPDF(alertData) {
   loadJsPDF()
@@ -2234,12 +2269,12 @@ export default function App() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await storageGet(STORAGE_KEY);
+        const res = await window.storage.get(STORAGE_KEY, true);
         setDb(res && res.value ? JSON.parse(res.value) : defaultDb());
       } catch {
         try {
           const fresh = defaultDb();
-          await storageSet(STORAGE_KEY, JSON.stringify(fresh));
+          await window.storage.set(STORAGE_KEY, JSON.stringify(fresh), true);
           setDb(fresh);
         } catch {
           setDb(defaultDb());
@@ -2253,7 +2288,7 @@ export default function App() {
   const mutate = useCallback((fn) => {
     setDb((prev) => {
       const next = fn(clone(prev));
-      storageSet(STORAGE_KEY, JSON.stringify(next)).catch(() => setSaveErr(true));
+      window.storage.set(STORAGE_KEY, JSON.stringify(next), true).catch(() => setSaveErr(true));
       return next;
     });
   }, []);
