@@ -22,6 +22,33 @@ const C = {
 
 const STORAGE_KEY = "dars-jadvali-db";
 
+// Bu manzilni o'zingizning api.php faylingiz joylashgan haqiqiy manzilga moslang.
+// Claude ichida sinab ko'rganda bu ishlatilmaydi (window.storage avtomatik ustunlik oladi).
+const EXTERNAL_API_URL = "https://api.buxpiima.uz/api.php";
+
+async function storageGet(key) {
+  if (typeof window !== "undefined" && window.storage) {
+    return window.storage.get(key, true);
+  }
+  const res = await fetch(`${EXTERNAL_API_URL}?key=${encodeURIComponent(key)}`);
+  if (!res.ok) throw new Error("Server xatosi: " + res.status);
+  const data = await res.json();
+  return data.value ? { value: data.value } : null;
+}
+
+async function storageSet(key, value) {
+  if (typeof window !== "undefined" && window.storage) {
+    return window.storage.set(key, value, true);
+  }
+  const res = await fetch(`${EXTERNAL_API_URL}?key=${encodeURIComponent(key)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ value }),
+  });
+  if (!res.ok) throw new Error("Server xatosi: " + res.status);
+  return { value };
+}
+
 const uid = () => Math.random().toString(36).slice(2, 10);
 const fmtDate = (iso) => {
   const d = new Date(iso);
@@ -2269,12 +2296,12 @@ export default function App() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await window.storage.get(STORAGE_KEY, true);
+        const res = await storageGet(STORAGE_KEY);
         setDb(res && res.value ? JSON.parse(res.value) : defaultDb());
       } catch {
         try {
           const fresh = defaultDb();
-          await window.storage.set(STORAGE_KEY, JSON.stringify(fresh), true);
+          await storageSet(STORAGE_KEY, JSON.stringify(fresh));
           setDb(fresh);
         } catch {
           setDb(defaultDb());
@@ -2288,7 +2315,7 @@ export default function App() {
   const mutate = useCallback((fn) => {
     setDb((prev) => {
       const next = fn(clone(prev));
-      window.storage.set(STORAGE_KEY, JSON.stringify(next), true).catch(() => setSaveErr(true));
+      storageSet(STORAGE_KEY, JSON.stringify(next)).catch(() => setSaveErr(true));
       return next;
     });
   }, []);
