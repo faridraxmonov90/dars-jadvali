@@ -26,6 +26,21 @@ const STORAGE_KEY = "dars-jadvali-db";
 // Bu manzilni o'zingizning api.php faylingiz joylashgan haqiqiy manzilga moslang.
 // Claude ichida sinab ko'rganda bu ishlatilmaydi (window.storage avtomatik ustunlik oladi).
 const EXTERNAL_API_URL = "https://api.buxpiima.uz/api.php";
+// Telegram xabarlari shu manzil orqali yuboriladi (telegram.php faylini serveringizga joylashtirasiz)
+const TELEGRAM_API_URL = "https://api.buxpiima.uz/telegram.php";
+
+async function sendTelegramMessage(chatId, text) {
+  if (!chatId) return;
+  try {
+    await fetch(TELEGRAM_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chatId, text }),
+    });
+  } catch {
+    // Telegram xabari yuborilmasa ham, asosiy funksiya (jadval o'zgarishi) ishlashda davom etadi
+  }
+}
 
 async function storageGet(key) {
   if (typeof window !== "undefined" && window.storage) {
@@ -345,7 +360,7 @@ function TeachersEditor({ teachers, subjects, onSave, onDelete, onImportMany }) 
   const [importRows, setImportRows] = useState(null); // parsed rows pending confirmation
   const [importErr, setImportErr] = useState("");
 
-  const empty = { id: null, firstName: "", lastName: "", username: "", password: "", subjectIds: [] };
+  const empty = { id: null, firstName: "", lastName: "", username: "", password: "", subjectIds: [], telegramChatId: "" };
 
   const handleFile = (e) => {
     const file = e.target.files?.[0];
@@ -419,6 +434,10 @@ function TeachersEditor({ teachers, subjects, onSave, onDelete, onImportMany }) 
           <Field label="Familiya"><input className={inputCls} style={inputStyle} value={modal.lastName} onChange={(e) => setModal({ ...modal, lastName: e.target.value })} /></Field>
           <Field label="Login"><input className={inputCls} style={inputStyle} value={modal.username} onChange={(e) => setModal({ ...modal, username: e.target.value })} /></Field>
           <Field label="Parol"><input className={inputCls} style={inputStyle} value={modal.password} onChange={(e) => setModal({ ...modal, password: e.target.value })} /></Field>
+          <Field label="Telegram Chat ID (ixtiyoriy)">
+            <input className={inputCls} style={inputStyle} value={modal.telegramChatId || ""} onChange={(e) => setModal({ ...modal, telegramChatId: e.target.value })} placeholder="Masalan: 123456789" />
+            <span style={{ color: C.textSoft }} className="text-[11px] block mt-1">To‘ldirilsa, vaqtincha dars yuklanganda o‘qituvchiga Telegram orqali xabar boradi.</span>
+          </Field>
           <Field label="Fanlar (ixtiyoriy)">
             <div className="flex flex-wrap gap-2">
               {subjects.map((s) => {
@@ -1034,6 +1053,24 @@ function ScheduleView({ db, mutate, onClose }) {
               const c = d.schedule[classId][tempCtx.dayId][tempCtx.slotId];
               c.tempEdits = [...(c.tempEdits || []), te];
               return d;
+            });
+            const cls = db.classes.find((c) => c.id === classId);
+            const slot = db.slots.find((s) => s.id === tempCtx.slotId);
+            te.entries.forEach((entry) => {
+              const t = db.teachers.find((x) => x.id === entry.teacherId);
+              if (!t || !t.telegramChatId) return;
+              const subj = db.subjects.find((s) => s.id === entry.subjectId)?.name || "?";
+              const room = db.rooms.find((r) => r.id === entry.roomId)?.name || "?";
+              const text = [
+                "⚠️ Diqqat! Sizga vaqtincha dars yuklandi.",
+                `📅 Sana: ${te.date}`,
+                `🏫 Sinf: ${cls?.name || "?"}`,
+                `⏰ Dars: ${slot?.name || "?"} (${slot?.start || ""}–${slot?.end || ""})`,
+                `📘 Fan: ${subj}`,
+                `🚪 Xona: ${room}`,
+                entry.comment ? `💬 Izoh: ${entry.comment}` : null,
+              ].filter(Boolean).join("\n");
+              sendTelegramMessage(t.telegramChatId, text);
             });
           }}
           onRemove={(id) => {

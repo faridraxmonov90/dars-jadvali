@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
-import { Settings, GraduationCap, BookOpen, Pencil, Ruler, Calculator, School, Bell, CalendarDays, CalendarOff, ClipboardList, AlertTriangle, Upload, CheckCircle2, ChevronLeft, FileDown } from "lucide-react";
+import { Settings, GraduationCap, BookOpen, Pencil, Ruler, Calculator, School, Bell, CalendarDays, CalendarOff, ClipboardList, AlertTriangle, Upload, CheckCircle2, ChevronLeft, FileDown, Trophy, Award, Music, Rocket, Palette, Bus, Microscope, Brain, Atom, Laptop, Sparkles, Quote } from "lucide-react";
 
 /* ---------- palette ---------- */
 const C = {
@@ -16,6 +16,7 @@ const C = {
   temp: "#FCEBD5",
   tempBorder: "#E3A75B",
   darkBlue: "#0B1F4D",
+  blue: "#2E63E7",
   textMain: "#1B2333",
   textSoft: "#6B7385",
 };
@@ -25,6 +26,21 @@ const STORAGE_KEY = "dars-jadvali-db";
 // Bu manzilni o'zingizning api.php faylingiz joylashgan haqiqiy manzilga moslang.
 // Claude ichida sinab ko'rganda bu ishlatilmaydi (window.storage avtomatik ustunlik oladi).
 const EXTERNAL_API_URL = "https://api.buxpiima.uz/api.php";
+// Telegram xabarlari shu manzil orqali yuboriladi (telegram.php faylini serveringizga joylashtirasiz)
+const TELEGRAM_API_URL = "https://api.buxpiima.uz/telegram.php";
+
+async function sendTelegramMessage(chatId, text) {
+  if (!chatId) return;
+  try {
+    await fetch(TELEGRAM_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chatId, text }),
+    });
+  } catch {
+    // Telegram xabari yuborilmasa ham, asosiy funksiya (jadval o'zgarishi) ishlashda davom etadi
+  }
+}
 
 async function storageGet(key) {
   if (typeof window !== "undefined" && window.storage) {
@@ -344,7 +360,7 @@ function TeachersEditor({ teachers, subjects, onSave, onDelete, onImportMany }) 
   const [importRows, setImportRows] = useState(null); // parsed rows pending confirmation
   const [importErr, setImportErr] = useState("");
 
-  const empty = { id: null, firstName: "", lastName: "", username: "", password: "", subjectIds: [] };
+  const empty = { id: null, firstName: "", lastName: "", username: "", password: "", subjectIds: [], telegramChatId: "" };
 
   const handleFile = (e) => {
     const file = e.target.files?.[0];
@@ -418,6 +434,10 @@ function TeachersEditor({ teachers, subjects, onSave, onDelete, onImportMany }) 
           <Field label="Familiya"><input className={inputCls} style={inputStyle} value={modal.lastName} onChange={(e) => setModal({ ...modal, lastName: e.target.value })} /></Field>
           <Field label="Login"><input className={inputCls} style={inputStyle} value={modal.username} onChange={(e) => setModal({ ...modal, username: e.target.value })} /></Field>
           <Field label="Parol"><input className={inputCls} style={inputStyle} value={modal.password} onChange={(e) => setModal({ ...modal, password: e.target.value })} /></Field>
+          <Field label="Telegram Chat ID (ixtiyoriy)">
+            <input className={inputCls} style={inputStyle} value={modal.telegramChatId || ""} onChange={(e) => setModal({ ...modal, telegramChatId: e.target.value })} placeholder="Masalan: 123456789" />
+            <span style={{ color: C.textSoft }} className="text-[11px] block mt-1">To‘ldirilsa, vaqtincha dars yuklanganda o‘qituvchiga Telegram orqali xabar boradi.</span>
+          </Field>
           <Field label="Fanlar (ixtiyoriy)">
             <div className="flex flex-wrap gap-2">
               {subjects.map((s) => {
@@ -1033,6 +1053,24 @@ function ScheduleView({ db, mutate, onClose }) {
               const c = d.schedule[classId][tempCtx.dayId][tempCtx.slotId];
               c.tempEdits = [...(c.tempEdits || []), te];
               return d;
+            });
+            const cls = db.classes.find((c) => c.id === classId);
+            const slot = db.slots.find((s) => s.id === tempCtx.slotId);
+            te.entries.forEach((entry) => {
+              const t = db.teachers.find((x) => x.id === entry.teacherId);
+              if (!t || !t.telegramChatId) return;
+              const subj = db.subjects.find((s) => s.id === entry.subjectId)?.name || "?";
+              const room = db.rooms.find((r) => r.id === entry.roomId)?.name || "?";
+              const text = [
+                "⚠️ Diqqat! Sizga vaqtincha dars yuklandi.",
+                `📅 Sana: ${te.date}`,
+                `🏫 Sinf: ${cls?.name || "?"}`,
+                `⏰ Dars: ${slot?.name || "?"} (${slot?.start || ""}–${slot?.end || ""})`,
+                `📘 Fan: ${subj}`,
+                `🚪 Xona: ${room}`,
+                entry.comment ? `💬 Izoh: ${entry.comment}` : null,
+              ].filter(Boolean).join("\n");
+              sendTelegramMessage(t.telegramChatId, text);
             });
           }}
           onRemove={(id) => {
@@ -2181,26 +2219,29 @@ function TeacherCabinet({ db, teacher, mutate, onLogout }) {
 /* ---------- decorative education banner ---------- */
 function EducationPattern() {
   const items = [
-    { Icon: BookOpen, top: "12%", left: "6%", size: 46, rotate: -18, opacity: 0.16 },
-    { Icon: Pencil, top: "62%", left: "10%", size: 34, rotate: 25, opacity: 0.14 },
-    { Icon: GraduationCap, top: "20%", left: "88%", size: 54, rotate: 10, opacity: 0.18 },
-    { Icon: Ruler, top: "70%", left: "82%", size: 36, rotate: -20, opacity: 0.14 },
-    { Icon: Calculator, top: "8%", left: "42%", size: 30, rotate: 8, opacity: 0.12 },
-    { Icon: School, top: "68%", left: "45%", size: 40, rotate: 0, opacity: 0.13 },
-    { Icon: BookOpen, top: "35%", left: "20%", size: 26, rotate: 12, opacity: 0.1 },
-    { Icon: Pencil, top: "18%", left: "70%", size: 24, rotate: -10, opacity: 0.1 },
+    { Icon: Trophy, top: "8%", left: "8%", rotate: -10, bg: "#FDE68A", color: "#B45309" },
+    { Icon: Ruler, top: "8%", left: "35%", rotate: -18, bg: "#FED7AA", color: "#C2410C" },
+    { Icon: Calculator, top: "8%", left: "65%", rotate: 6, bg: "#BBF7D0", color: "#15803D" },
+    { Icon: Award, top: "8%", left: "92%", rotate: 12, bg: "#FBCFE8", color: "#BE185D" },
+    { Icon: Palette, top: "50%", left: "3%", rotate: -12, bg: "#FBCFE8", color: "#9D174D" },
+    { Icon: Rocket, top: "50%", left: "97%", rotate: 14, bg: "#C7D2FE", color: "#4338CA" },
+    { Icon: Music, top: "92%", left: "8%", rotate: -8, bg: "#DDD6FE", color: "#6D28D9" },
+    { Icon: GraduationCap, top: "92%", left: "35%", rotate: 0, bg: "#A7F3D0", color: "#047857" },
+    { Icon: BookOpen, top: "92%", left: "65%", rotate: 10, bg: "#FCA5A5", color: "#B91C1C" },
+    { Icon: School, top: "92%", left: "92%", rotate: 8, bg: "#BFDBFE", color: "#1D4ED8" },
   ];
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
       {items.map((it, i) => {
         const Icon = it.Icon;
         return (
-          <Icon
+          <div
             key={i}
-            size={it.size}
-            strokeWidth={1.2}
-            style={{ position: "absolute", top: it.top, left: it.left, transform: `translate(-50%,-50%) rotate(${it.rotate}deg)`, opacity: it.opacity, color: "#fff" }}
-          />
+            style={{ position: "absolute", top: it.top, left: it.left, transform: `translate(-50%,-50%) rotate(${it.rotate}deg)`, background: it.bg }}
+            className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center shadow-sm"
+          >
+            <Icon size={20} strokeWidth={2} style={{ color: it.color }} />
+          </div>
         );
       })}
     </div>
@@ -2211,32 +2252,42 @@ function EducationPattern() {
 function Landing({ onAdmin, onTeacher }) {
   return (
     <div>
-      <div style={{ background: `linear-gradient(135deg, ${C.navy} 0%, ${C.navy2} 100%)` }} className="relative overflow-hidden rounded-2xl px-6 sm:px-10 py-10 mb-10">
+      <div className="flex items-start gap-2 mb-4 max-w-xl">
+        <Quote size={18} style={{ color: C.gold }} className="shrink-0 mt-0.5" />
+        <p style={{ color: C.textSoft }} className="text-sm italic">
+          O‘qituvchi — sham kabidir: o‘zini yoqib, boshqalarning yo‘lini yoritadi. Shu sababli har bir darsga kirish — muqaddas martabadir.
+        </p>
+      </div>
+
+      <div style={{ background: "#ECEEF2", borderColor: C.line }} className="relative overflow-hidden rounded-2xl px-6 sm:px-10 py-10 mb-10 border">
         <EducationPattern />
         <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-8">
-          <div className="text-left">
-            <div style={{ background: "rgba(255,255,255,0.12)" }} className="inline-flex w-14 h-14 rounded-2xl items-center justify-center mb-4">
-              <GraduationCap size={28} strokeWidth={1.6} className="text-white" />
-            </div>
-            <h1 className="text-white text-3xl font-bold mb-1">Interaktiv dars jadvali</h1>
-            <p style={{ color: "rgba(255,255,255,0.75)" }}>Tizimga kirish usulini tanlang</p>
+          <div className="text-center flex-1">
+            <img src="/school-logo.png" alt="Maktab logotipi" className="w-36 h-36 rounded-full object-cover mb-4 mx-auto" />
+            <h1 style={{ color: C.navy }} className="text-3xl font-bold">Interaktiv dars jadvali</h1>
           </div>
-          <div className="flex flex-col sm:flex-row gap-4 shrink-0">
-            <button onClick={onAdmin} style={{ background: "rgba(255,255,255,0.08)", borderColor: "rgba(255,255,255,0.2)" }} className="text-white rounded-xl px-8 py-6 w-56 border hover:bg-white/10 transition">
-              <Settings size={30} strokeWidth={1.6} className="mx-auto mb-2" />
-              <div className="font-semibold">Admin</div>
-              <div className="text-xs opacity-70 mt-1">Jadval va bazani boshqarish</div>
-            </button>
-            <button onClick={onTeacher} style={{ background: C.gold }} className="text-white rounded-xl px-8 py-6 w-56 hover:opacity-90 transition">
-              <GraduationCap size={30} strokeWidth={1.6} className="mx-auto mb-2" />
-              <div className="font-semibold">O‘qituvchi</div>
-              <div className="text-xs opacity-70 mt-1">Shaxsiy kabinetga kirish</div>
-            </button>
+          <div className="shrink-0">
+            <p style={{ color: C.navy }} className="flex items-center justify-center gap-1.5 text-center text-sm font-bold mb-3">
+              <Sparkles size={15} style={{ color: C.gold }} />
+              Tizimga kirish usulini tanlang
+              <Sparkles size={15} style={{ color: C.gold }} />
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <button onClick={onAdmin} style={{ background: C.blue }} className="text-white rounded-xl px-8 py-4 w-56 hover:opacity-90 transition">
+                <Settings size={26} strokeWidth={1.6} className="mx-auto mb-1.5" />
+                <div className="font-semibold">Admin</div>
+                <div className="text-xs opacity-80 mt-0.5">Jadval va bazani boshqarish</div>
+              </button>
+              <button onClick={onTeacher} style={{ background: C.gold }} className="text-white rounded-xl px-8 py-4 w-56 hover:opacity-90 transition">
+                <GraduationCap size={26} strokeWidth={1.6} className="mx-auto mb-1.5" />
+                <div className="font-semibold">O‘qituvchi</div>
+                <div className="text-xs opacity-80 mt-0.5">Shaxsiy kabinetga kirish</div>
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Pastdagi rasm shu yerga qo'yiladi */}
       <img src="/hero-banner.png" alt="Interaktiv dars jadvali" className="w-full rounded-2xl" />
     </div>
   );
@@ -2380,7 +2431,6 @@ export default function App() {
       `}</style>
       <div className="max-w-6xl mx-auto px-4 py-6">
         {saveErr && <div style={{ background: "#FDECEA", color: C.red }} className="text-xs rounded-md px-3 py-2 mb-4">Ma’lumotlarni saqlashda xatolik yuz berdi. Ulanishni tekshiring.</div>}
-        <p style={{ color: C.textSoft }} className="text-xs mb-3 text-right">Bu ma’lumotlar barcha foydalanuvchilar bilan umumiy saqlanadi.</p>
 
         {view === "landing" && <Landing onAdmin={() => setView("adminLogin")} onTeacher={() => setView("teacherLogin")} />}
         {view === "adminLogin" && <AdminLogin db={db} onSuccess={() => setView("admin")} onBack={() => setView("landing")} />}
