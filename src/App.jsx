@@ -2226,7 +2226,7 @@ function Landing({ onAdmin, onTeacher }) {
         <EducationPattern />
         <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-8">
           <div className="text-center flex-1">
-            <img src="/school-logo.png" alt="Maktab logotipi" className="w-14 h-14 rounded-full object-cover mb-4 mx-auto" />
+            <img src="/school-logo.png" alt="Maktab logotipi" className="w-36 h-36 rounded-full object-cover mb-4 mx-auto" />
             <h1 style={{ color: C.navy }} className="text-3xl font-bold">Interaktiv dars jadvali</h1>
           </div>
           <div className="shrink-0">
